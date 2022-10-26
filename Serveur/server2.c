@@ -252,6 +252,7 @@ static void app(void)
 							}
 							if (j == actual)
 							{
+								// IMPLEMENTER MESSAGE A USER ABSENT
 								send_message_to_a_client(clients, -1, i, "ERROR, target not found !", 1);
 							}
 							else

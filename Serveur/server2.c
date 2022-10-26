@@ -16,25 +16,17 @@
 //    free(buffer);
 // }
 
-static void logMessage(char *c, int i)
+static void logMessage(char *text, const char *filename)
 {
 	FILE *logFile = NULL;
-	if (i == LOG)
-	{
-		logFile = fopen("connectionLog.txt", "a");
-	}
-	else
-	{
-		logFile = fopen("messageLog.txt", "a");
-	}
+	logFile = fopen(filename, "a");
 	if (logFile == NULL)
 	{
 		printf("Impossible d'écrire dans le fichier");
 	}
-	//    char* date;
-	//    date = getTime();
-	//    strcat(date, c);
-	fprintf(logFile, "%s", c);
+	time_t secs;
+	secs = time(NULL);
+	fprintf(logFile, "%ld;%s\n", secs, text);
 	fclose(logFile);
 }
 
@@ -69,10 +61,21 @@ static void app(void)
 	Client clients[MAX_CLIENTS];
 	system("clear");
 	fd_set rdfs;
+	char all_clients[1000][BUF_SIZE];
+	FILE *fptr = NULL;
+	int i = 0;
+	int total_clients = 0;
+	fptr = fopen("clients_db", "r");
+	while (fgets(all_clients[i], BUF_SIZE, fptr))
+	{
+		all_clients[i][strlen(all_clients[i]) - 1] = '\0';
+		i++;
+	}
+	total_clients = i;
 
 	while (1)
 	{
-		int i = 0;
+		i = 0;
 		FD_ZERO(&rdfs);
 
 		/* add STDIN_FILENO */
@@ -149,8 +152,18 @@ static void app(void)
 			send_hist_to_client(clients, actual);
 			send_message_to_all_clients(clients, c, actual, message, 1);
 			send_message_to_a_client(clients, -1, actual, "---------You are connected !---------", 1);
+			if (actual > 0)
+			{
+				message = (char *)malloc(BUF_SIZE);
+				strcpy(message, "Also connected: ");
+				for (i = 0; i < actual; ++i)
+				{
+					strncat(message, clients[i].name, BUF_SIZE - sizeof(message));
+					strncat(message, " ", BUF_SIZE - sizeof(message));
+				}
+				send_message_to_a_client(clients, -1, actual, message, 1);
+			}
 			actual++;
-			
 		}
 		else
 		{
@@ -257,7 +270,17 @@ static void send_message_to_all_clients(Client *clients, Client sender, int actu
 	}
 	strncat(message, "\n", sizeof message - strlen(message) - 1);
 	printf("%s\n", message);
-	logMessage(message, from_server);
+
+	if (from_server)
+	{
+		// CASE 1 - connect & disconnect
+		logMessage(message, "server_logs");
+	}
+	else
+	{
+		// CASE 2 - broadcasts
+		logMessage(message, "broadcast_logs");
+	}
 }
 
 static void send_message_to_a_client(Client *clients, int sender, int receiver, const char *buffer, char from_server)
@@ -266,9 +289,10 @@ static void send_message_to_a_client(Client *clients, int sender, int receiver, 
 	message[0] = 0;
 	if (!from_server)
 	{
-		strncpy(message, clients[sender].name, BUF_SIZE - 1);
+		strncpy(message, "[PRIVATE] ", BUF_SIZE - 1);
+		strncat(message, clients[sender].name, BUF_SIZE - 1);
 		strncat(message, ": ", sizeof message - strlen(message) - 1);
-		printf("%s to %s :", clients[sender].name, clients[receiver].name);
+		printf("%s to %s : ", clients[sender].name, clients[receiver].name);
 	}
 	else
 	{
@@ -278,21 +302,89 @@ static void send_message_to_a_client(Client *clients, int sender, int receiver, 
 	strncat(message, buffer, sizeof message - strlen(message) - 1);
 	write_client(clients[receiver].sock, message);
 	strncat(message, "\n", sizeof message - strlen(message) - 1);
-	logMessage(message, from_server);
+	if (from_server)
+	{
+		// CASE 1 - server messages
+		logMessage(message, "server_logs");
+	}
+	else
+	{
+		// CASE 2 - private messages
+		char *path = malloc(1000);
+		strcpy(path, "users/");
+		strcat(path, clients[receiver].name);
+		logMessage(message, path);
+		free(path);
+		path = malloc(1000);
+		strcpy(path, "users/");
+		strcat(path, clients[sender].name);
+		logMessage(message, path);
+		free(path);
+	}
+}
+
+static const char *getfield(char *line, int num)
+{
+	const char *tok;
+	for (tok = strtok(line, ";");
+		 tok && *tok;
+		 tok = strtok(NULL, ";\n"))
+	{
+		if (!--num)
+			return tok;
+	}
+	return NULL;
 }
 
 static void send_hist_to_client(Client *clients, int receiver)
 {
-	FILE *fichier = fopen("messageLog.txt", "r");
-	char *historique[BUF_SIZE];
-	if (fichier != NULL)
+	char *path = malloc(1000);
+	strcpy(path, "users/");
+	strcat(path, clients[receiver].name);
+	FILE *fichier_public = fopen("broadcast_logs", "r");
+	FILE *fichier_perso = fopen(path, "r");
+	char line[BUF_SIZE];
+	char *historique_public[1000];
+	int i = 0;
+	int timestamp_perso;
+	int timestamp_public[1000];
+	if (fichier_public != NULL)
 	{
-		while (fgets(historique, BUF_SIZE, fichier) != NULL) // On lit le fichier tant qu'on ne reçoit pas d'erreur (NULL)
+		while (fgets(line, BUF_SIZE, fichier_public) != NULL) // On lit le fichier tant qu'on ne reçoit pas d'erreur (NULL)
 		{
-			write_client(clients[receiver].sock, historique);
+			char *tmp = strdup(line);
+			timestamp_public[i] = atoi(getfield(tmp, 1));
+			historique_public[i] = (char *)malloc(BUF_SIZE);
+			tmp = strdup(line);
+			tmp = (char *)getfield(tmp, 2);
+			strcpy(historique_public[i], tmp);
+			i++;
 		}
-		fclose(fichier);
+		fclose(fichier_public);
 	}
+	int j = 0;
+	int k = 0;
+	if (fichier_perso != NULL)
+	{
+		while (fgets(line, BUF_SIZE, fichier_perso) != NULL) // On lit le fichier tant qu'on ne reçoit pas d'erreur (NULL)
+		{
+			char *tmp = strdup(line);
+			timestamp_perso = atoi(getfield(tmp, 1));
+			while (k < i && timestamp_public[k] < timestamp_perso)
+			{
+				write_client(clients[receiver].sock, historique_public[k]);
+				k++;
+			}
+			write_client(clients[receiver].sock, getfield(line, 2));
+		}
+		fclose(fichier_perso);
+	}
+	while (k < i)
+	{
+		write_client(clients[receiver].sock, historique_public[k]);
+		k++;
+	}
+	free(path);
 }
 
 static int init_connection(void)
@@ -321,7 +413,7 @@ static int init_connection(void)
 		perror("listen()");
 		exit(errno);
 	}
-	logMessage("Server started\n", LOG);
+	logMessage("Server started\n", "server_logs");
 
 	return sock;
 }

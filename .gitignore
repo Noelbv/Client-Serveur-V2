@@ -1,4 +1,19 @@
-*.o
-*.txt
-Serveur/server
-Client/client
+# Blocklist files/folders in same directory as the .gitignore file
+/*
+
+# Includelist some files
+!.gitignore
+!README.md
+
+!Client/
+Client/*
+!Client/*.c
+!Client/*.h
+
+
+!Serveur/
+Serveur/*
+!Serveur/*.c
+!Serveur/*.h
+!Serveur/users
+Serveur/users/*

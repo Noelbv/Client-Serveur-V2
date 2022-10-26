@@ -39,7 +39,8 @@ typedef struct in_addr IN_ADDR;
 
 
 static char* getTime();
-static void logMessage(char* c, int i);
+static const char* getfield(char* line, int num);
+static void logMessage(char *text, const char* filename);
 static void init(void);
 static void end(void);
 static void app(void);

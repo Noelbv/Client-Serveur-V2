@@ -65,13 +65,38 @@ static void app(void)
 	FILE *fptr = NULL;
 	int i = 0;
 	int total_clients = 0;
-	fptr = fopen("clients_db", "r");
-	while (fgets(all_clients[i], BUF_SIZE, fptr))
+	if (fptr = fopen("clients_db", "r"))
 	{
-		all_clients[i][strlen(all_clients[i]) - 1] = '\0';
-		i++;
+		while (fgets(all_clients[i], BUF_SIZE, fptr))
+		{
+			all_clients[i][strlen(all_clients[i]) - 1] = '\0';
+			i++;
+		}
+		fclose(fptr);
+	} else {
+		logMessage("", "clients_db");
 	}
 	total_clients = i;
+
+	if (fptr = fopen("groupes_db", "r"))
+	{
+		// while (fgets(all_clients[i], BUF_SIZE, fptr))
+		// {
+		// 	all_clients[i][strlen(all_clients[i]) - 1] = '\0';
+		// 	i++;
+		// }
+		fclose(fptr);
+	} else {
+		logMessage("", "groupes_db");
+	}
+
+	if (fptr = fopen("broadcast_logs", "r"))
+	{
+		fclose(fptr);
+	} else {
+		logMessage("", "broadcast_logs");
+	}
+
 
 	while (1)
 	{
@@ -338,13 +363,17 @@ static const char *getfield(char *line, int num)
 
 static void send_hist_to_client(Client *clients, int receiver)
 {
-	char *path = malloc(1000);
+	char *path = malloc(BUF_SIZE);
 	strcpy(path, "users/");
 	strcat(path, clients[receiver].name);
 	FILE *fichier_public = fopen("broadcast_logs", "r");
 	FILE *fichier_perso = fopen(path, "r");
+	if (fichier_perso == NULL){
+		logMessage("",path);
+	}
 	char line[BUF_SIZE];
 	char *historique_public[1000];
+	char * message_perso; 
 	int i = 0;
 	int timestamp_perso;
 	int timestamp_public[1000];
@@ -358,6 +387,7 @@ static void send_hist_to_client(Client *clients, int receiver)
 			tmp = strdup(line);
 			tmp = (char *)getfield(tmp, 2);
 			strcpy(historique_public[i], tmp);
+			strcat(historique_public[i],"\n");
 			i++;
 		}
 		fclose(fichier_public);
@@ -375,7 +405,12 @@ static void send_hist_to_client(Client *clients, int receiver)
 				write_client(clients[receiver].sock, historique_public[k]);
 				k++;
 			}
-			write_client(clients[receiver].sock, getfield(line, 2));
+			message_perso = (char*) malloc(BUF_SIZE);
+			tmp = strdup(line);
+			strcpy(message_perso, getfield(tmp, 2));
+			strcat(message_perso, "\n");
+			write_client(clients[receiver].sock, message_perso);
+			free(message_perso);
 		}
 		fclose(fichier_perso);
 	}

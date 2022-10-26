@@ -24,9 +24,12 @@ static void logMessage(char *text, const char *filename)
 	{
 		printf("Impossible d'écrire dans le fichier");
 	}
-	time_t secs;
-	secs = time(NULL);
-	fprintf(logFile, "%ld;%s\n", secs, text);
+	if (strlen(text) > 0)
+	{
+		time_t secs;
+		secs = time(NULL);
+		fprintf(logFile, "%ld;%s\n", secs, text);
+	}
 	fclose(logFile);
 }
 
@@ -73,7 +76,9 @@ static void app(void)
 			i++;
 		}
 		fclose(fptr);
-	} else {
+	}
+	else
+	{
 		logMessage("", "clients_db");
 	}
 	total_clients = i;
@@ -86,17 +91,20 @@ static void app(void)
 		// 	i++;
 		// }
 		fclose(fptr);
-	} else {
+	}
+	else
+	{
 		logMessage("", "groupes_db");
 	}
 
 	if (fptr = fopen("broadcast_logs", "r"))
 	{
 		fclose(fptr);
-	} else {
+	}
+	else
+	{
 		logMessage("", "broadcast_logs");
 	}
-
 
 	while (1)
 	{
@@ -368,12 +376,13 @@ static void send_hist_to_client(Client *clients, int receiver)
 	strcat(path, clients[receiver].name);
 	FILE *fichier_public = fopen("broadcast_logs", "r");
 	FILE *fichier_perso = fopen(path, "r");
-	if (fichier_perso == NULL){
-		logMessage("",path);
+	if (fichier_perso == NULL)
+	{
+		logMessage("", path);
 	}
 	char line[BUF_SIZE];
 	char *historique_public[1000];
-	char * message_perso; 
+	char *message_perso;
 	int i = 0;
 	int timestamp_perso;
 	int timestamp_public[1000];
@@ -381,14 +390,17 @@ static void send_hist_to_client(Client *clients, int receiver)
 	{
 		while (fgets(line, BUF_SIZE, fichier_public) != NULL) // On lit le fichier tant qu'on ne reçoit pas d'erreur (NULL)
 		{
-			char *tmp = strdup(line);
-			timestamp_public[i] = atoi(getfield(tmp, 1));
-			historique_public[i] = (char *)malloc(BUF_SIZE);
-			tmp = strdup(line);
-			tmp = (char *)getfield(tmp, 2);
-			strcpy(historique_public[i], tmp);
-			strcat(historique_public[i],"\n");
-			i++;
+			if (strlen(line) > 1)
+			{
+				char *tmp = strdup(line);
+				timestamp_public[i] = atoi(getfield(tmp, 1));
+				historique_public[i] = (char *)malloc(BUF_SIZE);
+				tmp = strdup(line);
+				tmp = (char *)getfield(tmp, 2);
+				strcpy(historique_public[i], tmp);
+				strcat(historique_public[i], "\n");
+				i++;
+			}
 		}
 		fclose(fichier_public);
 	}
@@ -398,19 +410,22 @@ static void send_hist_to_client(Client *clients, int receiver)
 	{
 		while (fgets(line, BUF_SIZE, fichier_perso) != NULL) // On lit le fichier tant qu'on ne reçoit pas d'erreur (NULL)
 		{
-			char *tmp = strdup(line);
-			timestamp_perso = atoi(getfield(tmp, 1));
-			while (k < i && timestamp_public[k] < timestamp_perso)
+			if (strlen(line) > 1)
 			{
-				write_client(clients[receiver].sock, historique_public[k]);
-				k++;
+				char *tmp = strdup(line);
+				timestamp_perso = atoi(getfield(tmp, 1));
+				while (k < i && timestamp_public[k] < timestamp_perso)
+				{
+					write_client(clients[receiver].sock, historique_public[k]);
+					k++;
+				}
+				message_perso = (char *)malloc(BUF_SIZE);
+				tmp = strdup(line);
+				strcpy(message_perso, getfield(tmp, 2));
+				strcat(message_perso, "\n");
+				write_client(clients[receiver].sock, message_perso);
+				free(message_perso);
 			}
-			message_perso = (char*) malloc(BUF_SIZE);
-			tmp = strdup(line);
-			strcpy(message_perso, getfield(tmp, 2));
-			strcat(message_perso, "\n");
-			write_client(clients[receiver].sock, message_perso);
-			free(message_perso);
 		}
 		fclose(fichier_perso);
 	}
@@ -426,6 +441,15 @@ static int init_connection(void)
 {
 	SOCKET sock = socket(AF_INET, SOCK_STREAM, 0);
 	SOCKADDR_IN sin = {0};
+
+	int reuse = 1;
+	if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (const char *)&reuse, sizeof(reuse)) < 0)
+		perror("setsockopt(SO_REUSEADDR) failed");
+
+#ifdef SO_REUSEPORT
+	if (setsockopt(sock, SOL_SOCKET, SO_REUSEPORT, (const char *)&reuse, sizeof(reuse)) < 0)
+		perror("setsockopt(SO_REUSEPORT) failed");
+#endif
 
 	if (sock == INVALID_SOCKET)
 	{

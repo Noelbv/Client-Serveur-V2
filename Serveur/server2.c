@@ -178,7 +178,7 @@ static void app(void)
 			Client c = {csock};
 			strncpy(c.name, buffer, BUF_SIZE - 1);
 			clients[actual] = c;
-			char *message = (char *)malloc(sizeof(c.name));
+			char *message = (char *)malloc(BUF_SIZE);
 			strcpy(message, c.name);
 			strcat(message, " is connected !");
 			// logMessage(message, LOG);
@@ -220,19 +220,24 @@ static void app(void)
 					else
 					{
 						char *str;
-						str = (char *)malloc(sizeof(buffer));
+						str = (char *)malloc(BUF_SIZE);
 						strcpy(str, buffer);
 						const char *separator = ">";
+						if(!strcmp(strstr(str, separator), str)){
+							send_message_to_a_client(clients, -1, i, "ERROR, wrong format ! [target|all]> [message]", 1);
+							break;
+						}
 						char *target = strtok(str, separator);
 						int message_len = strlen(buffer) - strlen(target) - 2;
-						if (message_len == -2)
+						if (message_len < 1)
 						{
 							send_message_to_a_client(clients, -1, i, "ERROR, wrong format ! [target|all]> [message]", 1);
 							break;
 						}
-						char *message;
-						message = (char *)malloc(message_len);
+						char *message; 	
+						message = (char *)malloc(message_len+1);
 						strncpy(message, buffer + strlen(target) + 2, message_len);
+						message[message_len] = 0;
 
 						if (!strcmp(target, "all"))
 						{

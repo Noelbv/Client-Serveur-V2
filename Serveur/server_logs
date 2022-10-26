@@ -1,136 +1,106 @@
-1666767706;Server started
+1666775160;Server started
 
-1666767747;pierre is connected !
+1666775184;pierre is connected !
 
-1666767747;---------You are connected !---------
+1666775184;---------You are connected !---------
 
-1666768340;Server started
+1666775188;paul is connected !
 
-1666768343;pierre is connected !
+1666775188;---------You are connected !---------
 
-1666768343;---------You are connected !---------
+1666775188;Also connected: pierre 
 
-1666768534;Server started
+1666775191;ERROR, wrong format ! [target|all]> [message]
 
-1666768617;Server started
+1666775240;pierre disconnected !
 
-1666768957;Server started
+1666775242;pierre is connected !
 
-1666768960;pierre is connected !
+1666775242;---------You are connected !---------
 
-1666768960;---------You are connected !---------
+1666775242;Also connected: paul 
 
-1666769405;Server started
+1666775251;pierre disconnected !
 
-1666769835;Server started
+1666775261;ERROR, target not found !
 
-1666770128;Server started
+1666775265;paul disconnected !
 
-1666770190;Server started
+1666775762;Server started
 
-1666770432;Server started
+1666775770;pierre is connected !
 
-1666770491;pierre is connected !
+1666775770;---------You are connected !---------
 
-1666770491;---------You are connected !---------
+1666775773;ERROR, wrong format ! [target|all]> [message]
 
-1666770616;jp is connected !
+1666775999;Server started
 
-1666770616;---------You are connected !---------
+1666776020;pierre is connected !
 
-1666770616;Also connected: pierre 
+1666776020;---------You are connected !---------
 
-1666770656;ERROR, target not found !
+1666776032;paul is connected !
 
-1666770756;jp disconnected !
+1666776032;---------You are connected !---------
 
-1666771008;Server started
+1666776032;Also connected: pierre 
 
-1666771340;Server started
+1666776186;Server started
 
-1666771343;pierre is connected !
+1666776189;pierre is connected !
 
-1666771343;---------You are connected !---------
+1666776189;---------You are connected !---------
 
-1666771349;jp is connected !
+1666776895;Server started
 
-1666771349;---------You are connected !---------
+1666776902;pierre is connected !
 
-1666771349;Also connected: pierre 
+1666776902;---------You are connected !---------
 
-1666771370;jp disconnected !
+1666776909;ERROR, wrong format ! [target|all]> [message]
 
-1666771372;jp is connected !
+1666776913;ERROR, wrong format ! [target|all]> [message]
 
-1666771372;---------You are connected !---------
+1666776931;Server started
 
-1666771372;Also connected: pierre 
+1666776934;pierre is connected !
 
-1666771378;pierre disconnected !
+1666776934;---------You are connected !---------
 
-1666771379;pierre is connected !
+1666776941;ERROR, target not found !
 
-1666771379;---------You are connected !---------
+1666776963;Server started
 
-1666771380;Also connected: jp 
+1666776973;pierre is connected !
 
-1666771406;jp disconnected !
+1666776973;---------You are connected !---------
 
-1666771408;jp is connected !
+1666777048;Server started
 
-1666771408;---------You are connected !---------
+1666777058;pierre is connected !
 
-1666771408;Also connected: pierre 
+1666777058;---------You are connected !---------
 
-1666771420;pierre disconnected !
+1666777062;ERROR, wrong format ! [target|all]> [message]
 
-1666771421;pierre is connected !
+1666777159;Server started
 
-1666771421;---------You are connected !---------
+1666777163;pierre is connected !
 
-1666771421;Also connected: jp 
+1666777163;---------You are connected !---------
 
-1666771465;ERROR, wrong format ! [target|all]> [message]
+1666777166;ERROR, wrong format ! [target|all]> [message]
 
-1666771467;jp disconnected !
+1666777168;ERROR, wrong format ! [target|all]> [message]
 
-1666771469;jp is connected !
+1666777170;ERROR, wrong format ! [target|all]> [message]
 
-1666771469;---------You are connected !---------
+1666777181;ERROR, wrong format ! [target|all]> [message]
 
-1666771469;Also connected: pierre 
+1666777214;ERROR, wrong format ! [target|all]> [message]
 
-1666771499;jp disconnected !
+1666777218;ERROR, wrong format ! [target|all]> [message]
 
-1666771500;jp is connected !
-
-1666771500;---------You are connected !---------
-
-1666771500;Also connected: pierre 
-
-1666771530;Server started
-
-1666771532;pierre is connected !
-
-1666771532;---------You are connected !---------
-
-1666771534;jp is connected !
-
-1666771534;---------You are connected !---------
-
-1666771534;Also connected: pierre 
-
-1666771548;Server started
-
-1666771957;Server started
-
-1666771959;pierre is connected !
-
-1666771959;---------You are connected !---------
-
-1666771964;paul is connected !
-
-1666771964;---------You are connected !---------
-
-1666771964;Also connected: pierre 
+1666777232;ERROR, wrong format ! [target|all]> [message]
 

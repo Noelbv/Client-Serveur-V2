@@ -32,7 +32,8 @@ typedef struct in_addr IN_ADDR;
 #define CRLF        "\r\n"
 #define PORT         1977
 #define MAX_CLIENTS     100
-
+#define TRUE 1
+#define FALSE 0
 #define BUF_SIZE    1024
 
 #include "client2.h"
@@ -48,6 +49,7 @@ static int init_connection(void);
 static void end_connection(int sock);
 static int read_client(SOCKET sock, char *buffer);
 static void write_client(SOCKET sock, const char *buffer);
+static void send_message_to_offline_client(const char* sender, const char* receiver, const char* message);
 static void send_message_to_all_clients(Client *clients, Client client, int actual, const char *buffer, char from_server);
 static void send_message_to_a_client(Client *clients, int sender, int receiver, const char *buffer, char from_server);
 static void send_hist_to_client(Client *clients, int receiver);

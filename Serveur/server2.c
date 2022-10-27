@@ -3,6 +3,8 @@
 #include <errno.h>
 #include <string.h>
 #include <time.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include "server2.h"
 #include "client2.h"
 
@@ -55,6 +57,8 @@ static void end(void)
 
 static void app(void)
 {
+	if (mkdir("users", 0777) != -1)
+		logMessage("users folder created !", "server_logs");
 	SOCKET sock = init_connection();
 	char buffer[BUF_SIZE];
 	/* the index for the array */
@@ -68,7 +72,7 @@ static void app(void)
 	FILE *fptr = NULL;
 	int i = 0;
 	int total_clients = 0;
-	if (fptr = fopen("clients_db", "r"))
+	if (fptr = fopen("users_db", "r"))
 	{
 		while (fgets(all_clients[i], BUF_SIZE, fptr))
 		{
@@ -178,15 +182,30 @@ static void app(void)
 			Client c = {csock};
 			strncpy(c.name, buffer, BUF_SIZE - 1);
 			clients[actual] = c;
+
+			/* new client already in DB ? */
+			for(i=0; i<total_clients; i++){
+				if(!strcmp(all_clients[i],c.name)) break;
+			}
+			if(i == total_clients){
+				/* if not add it to the db */
+				strcpy(all_clients[i], c.name);
+				total_clients++;
+				fptr = fopen("users_db", "a");
+				fputs(c.name, fptr);
+				fputc('\n', fptr);
+				fclose(fptr);
+			}
+
 			char *message = (char *)malloc(BUF_SIZE);
 			strcpy(message, c.name);
 			strcat(message, " is connected !");
-			// logMessage(message, LOG);
 			send_hist_to_client(clients, actual);
-			send_message_to_all_clients(clients, c, actual, message, 1);
-			send_message_to_a_client(clients, -1, actual, "---------You are connected !---------", 1);
+			send_message_to_all_clients(clients, c, actual, message, TRUE);
+			write_client(clients[actual].sock, "---------You are connected !---------\n");
 			if (actual > 0)
-			{
+			{	
+				// who is also there ?
 				message = (char *)malloc(BUF_SIZE);
 				strcpy(message, "Also connected: ");
 				for (i = 0; i < actual; ++i)
@@ -194,7 +213,7 @@ static void app(void)
 					strncat(message, clients[i].name, BUF_SIZE - sizeof(message));
 					strncat(message, " ", BUF_SIZE - sizeof(message));
 				}
-				send_message_to_a_client(clients, -1, actual, message, 1);
+				send_message_to_a_client(clients, -1, actual, message, TRUE);
 			}
 			actual++;
 		}
@@ -215,33 +234,38 @@ static void app(void)
 						remove_client(clients, i, &actual);
 						strncpy(buffer, client.name, BUF_SIZE - 1);
 						strncat(buffer, " disconnected !", BUF_SIZE - strlen(buffer) - 1);
-						send_message_to_all_clients(clients, client, actual, buffer, 1);
+						send_message_to_all_clients(clients, client, actual, buffer, TRUE);
 					}
 					else
 					{
+						// client writing a message
 						char *str;
 						str = (char *)malloc(BUF_SIZE);
 						strcpy(str, buffer);
 						const char *separator = ">";
-						if(!strcmp(strstr(str, separator), str)){
-							send_message_to_a_client(clients, -1, i, "ERROR, wrong format ! [target|all]> [message]", 1);
+
+						// check for syntax
+						if (strstr(str, separator) == NULL || !strcmp(strstr(str, separator), str))
+						{
+							send_message_to_a_client(clients, -1, i, "ERROR, wrong format ! [target|all]> [message]", TRUE);
 							break;
 						}
 						char *target = strtok(str, separator);
 						int message_len = strlen(buffer) - strlen(target) - 2;
 						if (message_len < 1)
 						{
-							send_message_to_a_client(clients, -1, i, "ERROR, wrong format ! [target|all]> [message]", 1);
+							send_message_to_a_client(clients, -1, i, "ERROR, wrong format ! [target|all]> [message]", TRUE);
 							break;
 						}
-						char *message; 	
-						message = (char *)malloc(message_len+1);
+						char *message;
+						message = (char *)malloc(message_len + 1);
 						strncpy(message, buffer + strlen(target) + 2, message_len);
 						message[message_len] = 0;
 
+						// is it a broadcast message ?
 						if (!strcmp(target, "all"))
 						{
-							send_message_to_all_clients(clients, client, actual, message, 0);
+							send_message_to_all_clients(clients, client, actual, message, FALSE);
 						}
 						else
 						{
@@ -252,12 +276,17 @@ static void app(void)
 							}
 							if (j == actual)
 							{
-								// IMPLEMENTER MESSAGE A USER ABSENT
-								send_message_to_a_client(clients, -1, i, "ERROR, target not found !", 1);
+								// even if the target user is disconnected, it might be registered in the DB
+								j = 0;
+								while (strcmp(target, all_clients[j]) && j < total_clients)
+								{
+									j++;
+								}
+								j == total_clients ? send_message_to_a_client(clients, -1, i, "ERROR, target not found !", TRUE) : send_message_to_offline_client(clients[i].name, all_clients[j], message);
 							}
 							else
 							{
-								send_message_to_a_client(clients, i, j, message, 0);
+								send_message_to_a_client(clients, i, j, message, FALSE);
 							}
 						}
 					}
@@ -286,6 +315,18 @@ static void remove_client(Client *clients, int to_remove, int *actual)
 	memmove(clients + to_remove, clients + to_remove + 1, (*actual - to_remove - 1) * sizeof(Client));
 	/* number client - 1 */
 	(*actual)--;
+}
+
+static void send_message_to_offline_client(const char* sender, const char* receiver, const char* message)
+{
+	char log[BUF_SIZE];
+	strcpy(log, "[PRIVATE] ");
+	strncat(log, sender, BUF_SIZE - strlen(log) - sizeof(sender));
+	strncat(log, message, BUF_SIZE - strlen(log) - sizeof(message));
+	char path[BUF_SIZE];
+	strcpy(path, "users/"); 
+	strncat(path, receiver, BUF_SIZE-7);
+	logMessage(log, path);
 }
 
 static void send_message_to_all_clients(Client *clients, Client sender, int actual, const char *buffer, char from_server)
@@ -354,11 +395,14 @@ static void send_message_to_a_client(Client *clients, int sender, int receiver, 
 		strcat(path, clients[receiver].name);
 		logMessage(message, path);
 		free(path);
-		path = malloc(1000);
-		strcpy(path, "users/");
-		strcat(path, clients[sender].name);
-		logMessage(message, path);
-		free(path);
+		if (sender != receiver)
+		{
+			path = malloc(1000);
+			strcpy(path, "users/");
+			strcat(path, clients[sender].name);
+			logMessage(message, path);
+			free(path);
+		}
 	}
 }
 
@@ -412,6 +456,7 @@ static void send_hist_to_client(Client *clients, int receiver)
 	}
 	int j = 0;
 	int k = 0;
+	write_client(clients[receiver].sock, "######## MAIN CONVERSATION #########");
 	if (fichier_perso != NULL)
 	{
 		while (fgets(line, BUF_SIZE, fichier_perso) != NULL) // On lit le fichier tant qu'on ne reçoit pas d'erreur (NULL)

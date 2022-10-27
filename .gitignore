@@ -15,5 +15,5 @@ Client/*
 Serveur/*
 !Serveur/*.c
 !Serveur/*.h
-!Serveur/users
+!Serveur/users/
 Serveur/users/*

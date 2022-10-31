@@ -1,4 +1,4 @@
-# Client-Serveur-V2
-TODO : 
-- implementer message à user déconnecté
-- groupes
+# TP3 - Noé LE BLAVEC & Enzo RUEDAS
+
+Howto:
+-- se connecter: 

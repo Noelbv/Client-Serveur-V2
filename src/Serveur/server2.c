@@ -7,18 +7,14 @@
 #include <sys/stat.h>
 #include "server2.h"
 #include "client2.h"
+#include "group.h"
 
-// static char* getTime()
-// {
-//    char* buffer = malloc(21);
-//    time_t timestamp = time(NULL);
-//    strftime(buffer, 21, "%d/%m/%Y %H:%M:%S", localtime(&timestamp));
-//    printf("%s\n", buffer);
-//    return(buffer);
-//    free(buffer);
-// }
+static int total_clients;
+static int actual;
+// tous les clients qui se sont déjà enregistrés
+static char all_clients[1000][BUF_SIZE];
 
-static void logMessage(char *text, const char *filename)
+static void logToFile(char *text, const char *filename)
 {
 	FILE *logFile = NULL;
 	logFile = fopen(filename, "a");
@@ -58,21 +54,26 @@ static void end(void)
 static void app(void)
 {
 	if (mkdir("users", 0777) != -1)
-		logMessage("users folder created !", "server_logs");
+		logToFile("users folder created !", "data/server_logs");
 	SOCKET sock = init_connection();
 	char buffer[BUF_SIZE];
-	/* the index for the array */
-	int actual = 0;
+	/* le nombre actuel de clients en ligne*/
+	actual = 0;
+	// le nombre actuel de groupes
+	int nb_groups = 0;
 	int max = sock;
 	/* an array for all clients */
 	Client clients[MAX_CLIENTS];
+	// On impose une limite arbitraire de 50 groupes pour gérer plus facielement la mémoire allouée
+	Group groups[50];
 	system("clear");
 	fd_set rdfs;
-	char all_clients[1000][BUF_SIZE];
+	
 	FILE *fptr = NULL;
 	int i = 0;
-	int total_clients = 0;
-	if (fptr = fopen("users_db", "r"))
+	// nombre de clients total
+	total_clients = 0;
+	if (fptr = fopen("data/users_db", "r"))
 	{
 		while (fgets(all_clients[i], BUF_SIZE, fptr))
 		{
@@ -83,11 +84,11 @@ static void app(void)
 	}
 	else
 	{
-		logMessage("", "clients_db");
+		logToFile("", "data/clients_db");
 	}
 	total_clients = i;
 
-	if (fptr = fopen("groupes_db", "r"))
+	if (fptr = fopen("data/groups_db", "r"))
 	{
 		// while (fgets(all_clients[i], BUF_SIZE, fptr))
 		// {
@@ -98,16 +99,16 @@ static void app(void)
 	}
 	else
 	{
-		logMessage("", "groupes_db");
+		logToFile("", "data/groups_db");
 	}
 
-	if (fptr = fopen("broadcast_logs", "r"))
+	if (fptr = fopen("data/broadcast_logs", "r"))
 	{
 		fclose(fptr);
 	}
 	else
 	{
-		logMessage("", "broadcast_logs");
+		logToFile("", "data/broadcast_logs");
 	}
 
 	while (1)
@@ -184,14 +185,17 @@ static void app(void)
 			clients[actual] = c;
 
 			/* new client already in DB ? */
-			for(i=0; i<total_clients; i++){
-				if(!strcmp(all_clients[i],c.name)) break;
+			for (i = 0; i < total_clients; i++)
+			{
+				if (!strcmp(all_clients[i], c.name))
+					break;
 			}
-			if(i == total_clients){
+			if (i == total_clients)
+			{
 				/* if not add it to the db */
 				strcpy(all_clients[i], c.name);
 				total_clients++;
-				fptr = fopen("users_db", "a");
+				fptr = fopen("data/users_db", "a");
 				fputs(c.name, fptr);
 				fputc('\n', fptr);
 				fclose(fptr);
@@ -201,17 +205,17 @@ static void app(void)
 			strcpy(message, c.name);
 			strcat(message, " is connected !");
 			send_hist_to_client(clients, actual);
-			send_message_to_all_clients(clients, c, actual, message, TRUE);
-			write_client(clients[actual].sock, "---------You are connected !---------\n");
+			send_message_to_all_clients(clients, c, message, TRUE);
+			write_client(clients[actual].sock, "----You are connected !----\n");
 			if (actual > 0)
-			{	
+			{
 				// who is also there ?
 				message = (char *)malloc(BUF_SIZE);
 				strcpy(message, "Also connected: ");
 				for (i = 0; i < actual; ++i)
 				{
-					strncat(message, clients[i].name, BUF_SIZE - sizeof(message));
-					strncat(message, " ", BUF_SIZE - sizeof(message));
+					strncat(message, clients[i].name, BUF_SIZE - strlen(message));
+					strncat(message, " ", BUF_SIZE - strlen(message));
 				}
 				send_message_to_a_client(clients, -1, actual, message, TRUE);
 			}
@@ -234,7 +238,7 @@ static void app(void)
 						remove_client(clients, i, &actual);
 						strncpy(buffer, client.name, BUF_SIZE - 1);
 						strncat(buffer, " disconnected !", BUF_SIZE - strlen(buffer) - 1);
-						send_message_to_all_clients(clients, client, actual, buffer, TRUE);
+						send_message_to_all_clients(clients, client, buffer, TRUE);
 					}
 					else
 					{
@@ -242,6 +246,41 @@ static void app(void)
 						char *str;
 						str = (char *)malloc(BUF_SIZE);
 						strcpy(str, buffer);
+						if (str[0] == '#')
+						/* On crée un groupe */
+						{
+							int j;
+							for (j = 0; str[j]; j++)
+							{
+								str[j] = str[j + 1];
+							}
+							logToFile(strcat(strcat(str, " "), clients[i].name), "data/groups_db");
+							const char *separator = " ";
+							char *strToken = strtok(str, separator);
+							char *nomGroupe;
+							char members[10][BUF_SIZE];
+							strcpy(members[0], clients[i].name);
+							int k = 0;
+							while ((strToken != NULL) && (k < 10))
+							{
+								// On demande le token suivant.
+								if (k == 0)
+								{
+									nomGroupe = strndup(strToken, BUF_SIZE);
+									printf("%s\n", nomGroupe);
+								}
+								else
+								{
+									printf("%s\n", strToken);
+									strcpy(members[k], strToken);
+								}
+								strToken = strtok(NULL, separator);
+								k++;
+							}
+							create_group(groups, nb_groups, nomGroupe, members, k - 1);
+							nb_groups++;
+							break;
+						}
 						const char *separator = ">";
 
 						// check for syntax
@@ -265,28 +304,41 @@ static void app(void)
 						// is it a broadcast message ?
 						if (!strcmp(target, "all"))
 						{
-							send_message_to_all_clients(clients, client, actual, message, FALSE);
+							send_message_to_all_clients(clients, client, message, FALSE);
 						}
 						else
 						{
-							int j = 0;
-							while (strcmp(target, clients[j].name) && j < actual)
+							int i_online = 0;
+							int i_offline = 0;
+							int i_groups = 0;
+							while (strcmp(target, clients[i_online].name) && i_online < actual)
 							{
-								j++;
+								i_online++;
 							}
-							if (j == actual)
+							while (strcmp(target, all_clients[i_offline]) && i_offline < total_clients)
 							{
-								// even if the target user is disconnected, it might be registered in the DB
-								j = 0;
-								while (strcmp(target, all_clients[j]) && j < total_clients)
-								{
-									j++;
-								}
-								j == total_clients ? send_message_to_a_client(clients, -1, i, "ERROR, target not found !", TRUE) : send_message_to_offline_client(clients[i].name, all_clients[j], message);
+								i_offline++;
+							}
+							while (strcmp(target, groups[i_groups].name) && i_groups < nb_groups)
+							{
+								i_groups++;
+							}
+
+							if (i_groups != nb_groups)
+							{
+								send_message_to_a_group(clients, clients[i].name, groups[i_groups], message);
+							}
+							else if (i_online != actual)
+							{
+								send_message_to_a_client(clients, i, i_online, message, FALSE);
+							}
+							else if (i_offline != total_clients)
+							{
+								send_message_to_offline_client(clients[i].name, all_clients[i_offline], message);
 							}
 							else
 							{
-								send_message_to_a_client(clients, i, j, message, FALSE);
+								send_message_to_a_client(clients, -1, i, "ERROR, target not found !", TRUE);
 							}
 						}
 					}
@@ -317,19 +369,20 @@ static void remove_client(Client *clients, int to_remove, int *actual)
 	(*actual)--;
 }
 
-static void send_message_to_offline_client(const char* sender, const char* receiver, const char* message)
+static void send_message_to_offline_client(const char *sender, const char *receiver, const char *message)
 {
 	char log[BUF_SIZE];
 	strcpy(log, "[PRIVATE] ");
-	strncat(log, sender, BUF_SIZE - strlen(log) - sizeof(sender));
-	strncat(log, message, BUF_SIZE - strlen(log) - sizeof(message));
+	strncat(log, sender, BUF_SIZE - strlen(log) - strlen(sender));
+	strncat(log, ": ", BUF_SIZE - strlen(message) - 2);
+	strncat(log, message, BUF_SIZE - strlen(log) - strlen(message));
 	char path[BUF_SIZE];
-	strcpy(path, "users/"); 
-	strncat(path, receiver, BUF_SIZE-7);
-	logMessage(log, path);
+	strcpy(path, "users/");
+	strncat(path, receiver, BUF_SIZE - 7);
+	logToFile(log, path);
 }
 
-static void send_message_to_all_clients(Client *clients, Client sender, int actual, const char *buffer, char from_server)
+static void send_message_to_all_clients(Client *clients, Client sender, const char *buffer, char from_server)
 {
 	int i = 0;
 	char message[BUF_SIZE];
@@ -354,12 +407,12 @@ static void send_message_to_all_clients(Client *clients, Client sender, int actu
 	if (from_server)
 	{
 		// CASE 1 - connect & disconnect
-		logMessage(message, "server_logs");
+		logToFile(message, "data/server_logs");
 	}
 	else
 	{
 		// CASE 2 - broadcasts
-		logMessage(message, "broadcast_logs");
+		logToFile(message, "data/broadcast_logs");
 	}
 }
 
@@ -369,9 +422,9 @@ static void send_message_to_a_client(Client *clients, int sender, int receiver, 
 	message[0] = 0;
 	if (!from_server)
 	{
-		strncpy(message, "[PRIVATE] ", BUF_SIZE - 1);
-		strncat(message, clients[sender].name, BUF_SIZE - 1);
-		strncat(message, ": ", sizeof message - strlen(message) - 1);
+		strncpy(message, "[PRIVATE] ", BUF_SIZE - 11);
+		strncat(message, clients[sender].name, BUF_SIZE - strlen(message) - strlen(clients[sender].name));
+		strncat(message, ": ", sizeof message - strlen(message) - 2);
 		printf("%s to %s : ", clients[sender].name, clients[receiver].name);
 	}
 	else
@@ -379,13 +432,13 @@ static void send_message_to_a_client(Client *clients, int sender, int receiver, 
 		printf("Server to %s: ", clients[receiver].name);
 	}
 	printf("%s\n", buffer);
-	strncat(message, buffer, sizeof message - strlen(message) - 1);
+	strncat(message, buffer, sizeof message - strlen(message) - strlen(buffer));
 	write_client(clients[receiver].sock, message);
 	strncat(message, "\n", sizeof message - strlen(message) - 1);
 	if (from_server)
 	{
 		// CASE 1 - server messages
-		logMessage(message, "server_logs");
+		logToFile(message, "data/server_logs");
 	}
 	else
 	{
@@ -393,14 +446,14 @@ static void send_message_to_a_client(Client *clients, int sender, int receiver, 
 		char *path = malloc(1000);
 		strcpy(path, "users/");
 		strcat(path, clients[receiver].name);
-		logMessage(message, path);
+		logToFile(message, path);
 		free(path);
 		if (sender != receiver)
 		{
 			path = malloc(1000);
 			strcpy(path, "users/");
 			strcat(path, clients[sender].name);
-			logMessage(message, path);
+			logToFile(message, path);
 			free(path);
 		}
 	}
@@ -424,11 +477,11 @@ static void send_hist_to_client(Client *clients, int receiver)
 	char *path = malloc(BUF_SIZE);
 	strcpy(path, "users/");
 	strcat(path, clients[receiver].name);
-	FILE *fichier_public = fopen("broadcast_logs", "r");
+	FILE *fichier_public = fopen("data/broadcast_logs", "r");
 	FILE *fichier_perso = fopen(path, "r");
 	if (fichier_perso == NULL)
 	{
-		logMessage("", path);
+		logToFile("", path);
 	}
 	char line[BUF_SIZE];
 	char *historique_public[1000];
@@ -442,10 +495,10 @@ static void send_hist_to_client(Client *clients, int receiver)
 		{
 			if (strlen(line) > 1)
 			{
-				char *tmp = strdup(line);
+				char *tmp = strndup(line, BUF_SIZE);
 				timestamp_public[i] = atoi(getfield(tmp, 1));
 				historique_public[i] = (char *)malloc(BUF_SIZE);
-				tmp = strdup(line);
+				tmp = strndup(line, BUF_SIZE);
 				tmp = (char *)getfield(tmp, 2);
 				strcpy(historique_public[i], tmp);
 				strcat(historique_public[i], "\n");
@@ -456,14 +509,13 @@ static void send_hist_to_client(Client *clients, int receiver)
 	}
 	int j = 0;
 	int k = 0;
-	write_client(clients[receiver].sock, "######## MAIN CONVERSATION #########");
 	if (fichier_perso != NULL)
 	{
 		while (fgets(line, BUF_SIZE, fichier_perso) != NULL) // On lit le fichier tant qu'on ne reçoit pas d'erreur (NULL)
 		{
 			if (strlen(line) > 1)
 			{
-				char *tmp = strdup(line);
+				char *tmp = strndup(line, BUF_SIZE);
 				timestamp_perso = atoi(getfield(tmp, 1));
 				while (k < i && timestamp_public[k] < timestamp_perso)
 				{
@@ -471,7 +523,7 @@ static void send_hist_to_client(Client *clients, int receiver)
 					k++;
 				}
 				message_perso = (char *)malloc(BUF_SIZE);
-				tmp = strdup(line);
+				tmp = strndup(line, BUF_SIZE);
 				strcpy(message_perso, getfield(tmp, 2));
 				strcat(message_perso, "\n");
 				write_client(clients[receiver].sock, message_perso);
@@ -486,6 +538,58 @@ static void send_hist_to_client(Client *clients, int receiver)
 		k++;
 	}
 	free(path);
+}
+
+static void create_group(Group *groups, int nb_of_groups, const char *nom, char members[10][BUF_SIZE], int numberOfMembers)
+{
+	Group newGroup;
+	newGroup.size = numberOfMembers;
+	memcpy(&newGroup.name, nom, BUF_SIZE);
+	int i;
+	for (i = 0; i < numberOfMembers; ++i)
+	{
+		memcpy(newGroup.members[i], members[i], BUF_SIZE);
+	}
+	memcpy(&newGroup.members, members, BUF_SIZE);
+	groups[nb_of_groups] = newGroup;
+	nb_of_groups++;
+}
+
+static void send_message_to_a_group(Client *clients, const char *sender, Group group, const char *message)
+{
+	char msg[BUF_SIZE];
+	msg[0] = 0;
+	strncpy(msg, "[", BUF_SIZE - strlen(msg) - 1);
+	strncat(msg, group.name, BUF_SIZE - strlen(msg) - 1);
+	strncat(msg, "] ", BUF_SIZE - strlen(msg) - 2);
+	strncat(msg, sender, BUF_SIZE - strlen(msg) - strlen(sender));
+	strncat(msg, " : ", BUF_SIZE - strlen(msg) - 3);
+	strncat(msg, message, BUF_SIZE - strlen(msg) - strlen(message));
+	strncat(msg, "\n", BUF_SIZE - strlen(msg) - 1);
+	int i = 0;
+	for (i; i < group.size; i++)
+	{
+		char *target = (char*) malloc(strlen(group.members[i])+1);
+		strcpy(target, group.members[i]);
+		int i_online = 0;
+		int i_offline = 0;
+		while (strcmp(target, clients[i_online].name) && i_online < actual)
+		{
+			i_online++;
+		}
+		while (strcmp(target, all_clients[i_offline]) && i_offline < total_clients)
+		{
+			i_offline++;
+		}
+		if (i_online != actual)
+		{
+			write_client(clients[i].sock, msg);
+		}
+		else if (i_offline != total_clients)
+		{
+			send_message_to_offline_client(clients[i].name, all_clients[i_offline], msg);
+		}
+	}
 }
 
 static int init_connection(void)
@@ -523,7 +627,7 @@ static int init_connection(void)
 		perror("listen()");
 		exit(errno);
 	}
-	logMessage("Server started\n", "server_logs");
+	logToFile("Server started\n", "data/server_logs");
 
 	return sock;
 }
